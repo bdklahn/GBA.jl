@@ -72,10 +72,11 @@ function evaluate_zone_areas!(areas, geom_col, zone_indices, trans)
     end
 end
 
-function calc_footprint_area_table(file::String; min_height::Float64=3.0, region::AbstractString="ALL")
+function calc_footprint_area_table(file::String; min_height::Float64=3.0, region::AbstractString="ALL", output_dir::String="")
     # Generate the output filename by appending "_area" to the stem
     base, ext = splitext(file)
-    out_file = base * "_area" * ext
+    filename = basename(base) * "_area" * ext
+    out_file = isempty(output_dir) ? base * "_area" * ext : joinpath(output_dir, filename)
 
     df = DataFrame(Arrow.Table(file))
     
@@ -155,10 +156,15 @@ function calc_footprint_area_table(file::String; min_height::Float64=3.0, region
     return out_file
 end
 
-function process_all_gba_files(path=""; min_height::Float64=3.0, region::AbstractString="ALL")
+function process_all_gba_files(path=""; min_height::Float64=3.0, region::AbstractString="ALL", output_dir::AbstractString="")
+    # Create output directory if specified
+    if !isempty(output_dir)
+        mkpath(output_dir)
+    end
+    
     # Gather all files
     files = 
-      isfile(path) ? [path] 2:
+      isfile(path) ? [path] :
       region == "ALL" && isdir(path) ? get_bbox_files(path) : 
       get_relevant_files(path, region)
     
@@ -172,7 +178,7 @@ function process_all_gba_files(path=""; min_height::Float64=3.0, region::Abstrac
     # The @sync macro acts as a barrier, forcing the parent thread to wait 
     # until all spawned tasks inside the block have completely finished.
     @sync for file in files
-        Dagger.@spawn calc_footprint_area_table(file; min_height=min_height, region=region)
+        Dagger.@spawn calc_footprint_area_table(file; min_height=min_height, region=region, output_dir=output_dir)
     end
     
     @info "Finished processing . . . $files"
