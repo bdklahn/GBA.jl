@@ -134,9 +134,17 @@ function calc_footprint_area_table(file::String; min_height::Float64=3.0, region
         end
     end
     
-    # STEP 4: Build the modular output DataFrame
-    df_out = select(df_view, :source, :id)
-    df_out.footprint_area = areas 
+    # STEP 4: Build the modular output DataFrame with exact pool matching
+    # Create PooledArrays using similar() to inherit df's pools
+    df_out = DataFrame(
+        source = similar(df.source, nrow(df_view)),
+        id = similar(df.id, nrow(df_view))
+    )
+    
+    # Populate with broadcast assignment to maintain pool identity
+    df_out.source .= df_view.source
+    df_out.id .= df_view.id
+    df_out.footprint_area = areas
     
     # Write to Arrow with the file=true option
     Arrow.write(out_file, df_out; file=true)
